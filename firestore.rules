@@ -1,0 +1,32 @@
+/**
+ * This ruleset defines the security model for the GeoFace Attend application.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Employees and settings can be read by anyone to populate the UI.
+    // Writing should be restricted to admins.
+    match /employees/{employeeId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+    
+    // Worklogs have more complex rules.
+    // CREATE: Anyone can create a worklog (for check-in or leave request).
+    // READ, UPDATE, DELETE: Only a signed-in user (admin) can read, modify, or delete logs.
+    match /worklogs/{worklogId} {
+        allow create: if true;
+        allow read, update, delete: if isSignedIn();
+    }
+  }
+}

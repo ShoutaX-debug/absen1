@@ -1,0 +1,230 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents an employee using the GeoFace Attend system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The full name of the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address of the user.",
+          "format": "email"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The timestamp when the user account was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "email",
+        "createdAt"
+      ]
+    },
+    "Attendance": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Attendance",
+      "type": "object",
+      "description": "Represents an attendance record for a user.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the attendance record."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Attendance)"
+        },
+        "photoUrl": {
+          "type": "string",
+          "description": "URL of the selfie photo taken during attendance."
+        },
+        "latitude": {
+          "type": "number",
+          "description": "Latitude coordinate of the attendance location."
+        },
+        "longitude": {
+          "type": "number",
+          "description": "Longitude coordinate of the attendance location."
+        },
+        "status": {
+          "type": "string",
+          "description": "The attendance status (e.g., Present, Late, Absent)."
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "The timestamp when the attendance was recorded.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "photoUrl",
+        "latitude",
+        "longitude",
+        "status",
+        "timestamp"
+      ]
+    },
+    "OfficeLocation": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "OfficeLocation",
+      "type": "object",
+      "description": "Represents the location of the office for attendance validation.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the office location."
+        },
+        "latitude": {
+          "type": "number",
+          "description": "Latitude coordinate of the office location."
+        },
+        "longitude": {
+          "type": "number",
+          "description": "Longitude coordinate of the office location."
+        },
+        "radius": {
+          "type": "number",
+          "description": "The radius in meters around the office location for attendance validation."
+        }
+      },
+      "required": [
+        "id",
+        "latitude",
+        "longitude",
+        "radius"
+      ]
+    },
+    "Employee": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Employee",
+      "type": "object",
+      "description": "Represents an employee in the system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the employee."
+        },
+        "name": {
+          "type": "string",
+          "description": "The full name of the employee."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address of the employee.",
+          "format": "email"
+        },
+        "position": {
+          "type": "string",
+          "description": "The job position of the employee."
+        },
+        "avatar": {
+          "type": "object",
+          "description": "Avatar image information for the employee.",
+          "properties": {
+            "imageUrl": {
+              "type": "string",
+              "format": "uri"
+            },
+            "filePath": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "required": ["id", "name", "email"]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profile information. Path-based ownership ensures only the user can access their data.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user, corresponding to their Firebase Auth UID."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/attendance/{attendanceId}",
+        "definition": {
+          "entityName": "Attendance",
+          "schema": {
+            "$ref": "#/backend/entities/Attendance"
+          },
+          "description": "Stores attendance records for each user. Includes denormalized 'userId' for authorization independence.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user who recorded the attendance."
+            },
+            {
+              "name": "attendanceId",
+              "description": "The unique identifier for the attendance record."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/settings/{settingId}",
+        "definition": {
+          "entityName": "OfficeLocation",
+          "schema": {
+            "$ref": "#/backend/entities/OfficeLocation"
+          },
+          "description": "Stores the office location data for attendance validation.  It is assumed that there will only be one location.",
+          "params": [
+            {
+              "name": "settingId",
+              "description": "The unique identifier for the office location data, usually 'main_office'."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/employees/{employeeId}",
+        "definition": {
+          "entityName": "Employee",
+          "schema": {
+            "$ref": "#/backend/entities/Employee"
+          },
+          "description": "Stores information about each employee.",
+          "params": [
+            {
+              "name": "employeeId",
+              "description": "The unique identifier for the employee."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore data structure is designed to support the GeoFace Attend application, prioritizing security, scalability, and debuggability as per the core design principles.  Authorization Independence is achieved through denormalization.  Specifically, the `Attendance` collection, which depends on user data, denormalizes relevant `User` data into its documents. This eliminates the need for `get()` calls in security rules, enabling atomic operations.\n\nStructural Segregation is applied by keeping user-specific data (attendance records) in user-specific subcollections (`/users/{userId}/attendance/{attendanceId}`), ensuring homogeneous security posture within each collection.  Access Modeling follows path-based ownership for private user data, making security rules simple and efficient. The `settings` collection holds global data accessible to all users, representing a global configuration.\n\nThe chosen structure facilitates secure `list` operations (QAPs). Because attendance data is stored under each user's document, listing attendance requires knowing the `userId`, which is authenticated via `request.auth.uid`. The `settings` collection is a single document, so listing is not applicable. Radically Consistent naming conventions are applied to all paths and parameters for improved debuggability and maintainability. The status field in Attendance explicitly models the attendance state."
+  }
+}
