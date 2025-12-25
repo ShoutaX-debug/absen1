@@ -14,7 +14,8 @@ import {
     Timestamp,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { useFirestore, useStorage, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { signInAnonymously } from 'firebase/auth';
+import { useFirestore, useStorage, useAuth, errorEmitter, FirestorePermissionError } from '@/firebase';
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -87,6 +88,7 @@ function ClientOnlyTime({ dateString }: { dateString: string | null }) {
 export function CheckInClientPage({ employees, officeSettings }: { employees: Employee[], officeSettings: OfficeSettings }) {
     const db = useFirestore();
     const storage = useStorage();
+    const auth = useAuth();
     const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
     const [todaysLog, setTodaysLog] = useState<WorkLog | null>(null);
     const [locationState, setLocationState] = useState<LocationState>({ status: 'idle' });
@@ -102,6 +104,14 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
     const { toast } = useToast();
 
     const isWorkHoursValid = officeSettings.work_start && officeSettings.work_end;
+
+    // Ensure user is signed in anonymously to allow Storage uploads and Firestore updates
+    useEffect(() => {
+        if (auth && !auth.currentUser) {
+            console.log("Signing in anonymously...");
+            signInAnonymously(auth).catch(err => console.error("Anonymous auth failed", err));
+        }
+    }, [auth]);
 
     useEffect(() => {
         const handleBeforeInstallPrompt = (event: Event) => {
