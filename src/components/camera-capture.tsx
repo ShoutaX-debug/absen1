@@ -207,7 +207,7 @@ export function CameraCapture({ onCapture, isProcessing = false }: CameraCapture
 
       <div className="grid grid-cols-2 gap-2">
         {capturedImage ? (
-          <Button onClick={handleRetake} variant="secondary" className="w-full col-span-2" disabled={isProcessing}>
+          <Button onClick={handleRetake} variant="default" className="w-full col-span-2" disabled={isProcessing}>
             <RefreshCw className="mr-2 h-4 w-4" /> Foto Ulang
           </Button>
         ) : (
