@@ -13,9 +13,8 @@ import {
     getDocs,
     Timestamp,
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { signInAnonymously } from 'firebase/auth';
-import { useFirestore, useStorage, useAuth, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useFirestore, useAuth, errorEmitter, FirestorePermissionError } from '@/firebase';
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -87,7 +86,6 @@ function ClientOnlyTime({ dateString }: { dateString: string | null }) {
 // --- MAIN COMPONENT ---
 export function CheckInClientPage({ employees, officeSettings }: { employees: Employee[], officeSettings: OfficeSettings }) {
     const db = useFirestore();
-    const storage = useStorage();
     const auth = useAuth();
     const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
     const [todaysLog, setTodaysLog] = useState<WorkLog | null>(null);
@@ -229,44 +227,24 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
 
     // --- HELPERS ---
 
-    async function uploadToFirebase(file: File): Promise<string> {
-        if (!storage) throw new Error("Storage not initialized");
-        console.log('🔄 Starting Firebase Storage upload...', {
-            fileSize: file.size,
-            fileType: file.type
-        });
-
-        const filename = `${selectedEmployeeId}_${Date.now()}.jpg`;
-        const storageRef = ref(storage, `attendance/${filename}`);
-
-        try {
-            const snapshot = await uploadBytes(storageRef, file);
-            console.log('✅ Upload successful! Ref:', snapshot.ref.fullPath);
-            const downloadURL = await getDownloadURL(snapshot.ref);
-            console.log('🔗 Download URL:', downloadURL);
-            return downloadURL;
-        } catch (error: any) {
-            console.error('❌ Firebase Storage upload error:', error);
-            throw error;
-        }
-    }
-
+    // async function uploadToFirebase(file: File): Promise<string> { ... } // REMOVED: Using Base64 instead
 
     const handleSubmitAttendance = async (photoFile: File) => {
-        if (!db || !storage || !selectedEmployeeId || locationState.status !== 'success') return;
+        if (!db || !selectedEmployeeId || locationState.status !== 'success') return;
 
         setIsActionPending(true);
 
         let photoUrl = '';
 
         try {
-            photoUrl = await uploadToFirebase(photoFile);
+            // Convert to Base64 directly - No Firebase Storage needed
+            photoUrl = await fileToDataUrl(photoFile);
         } catch (uploadError: any) {
-            console.error("Upload failed", uploadError);
+            console.error("Image conversion failed", uploadError);
             toast({
                 variant: 'destructive',
-                title: 'Upload Error',
-                description: `Gagal upload foto: ${uploadError.message || 'Unknown error'}.`
+                title: 'Processing Error',
+                description: `Gagal memproses foto: ${uploadError.message || 'Unknown error'}.`
             });
             setIsActionPending(false);
             return;
