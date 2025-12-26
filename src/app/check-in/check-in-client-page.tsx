@@ -353,7 +353,7 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
     }
 
     const handleCapture = async (photoBlob: Blob) => {
-        const options = { maxSizeMB: 0.2, maxWidthOrHeight: 800, useWebWorker: false };
+        const options = { maxSizeMB: 0.1, maxWidthOrHeight: 600, useWebWorker: false };
         try {
             const compressedBlob = await (imageCompression as any).default(photoBlob, options);
             const photoFile = new File([compressedBlob], "capture.jpg", { type: "image/jpeg" });
@@ -550,6 +550,9 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
                         <EmployeeSelect employees={employees} onSelect={handleEmployeeChange} disabled={isProcessing || locationState.status === 'loading'} value={selectedEmployeeId} />
                     </div>
                     {renderContent()}
+                    <div className="text-center pb-4 text-xs text-muted-foreground/50">
+                        v2.0 (Direct Save Mode)
+                    </div>
                 </CardContent>
                 {installPromptEvent && (
                     <CardFooter>
