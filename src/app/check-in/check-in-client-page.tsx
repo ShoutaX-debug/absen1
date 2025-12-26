@@ -134,13 +134,7 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
 
     const [isTransitioning, startTransition] = useTransition();
     const [isActionPending, setIsActionPending] = useState(false);
-    const [logs, setLogs] = useState<string[]>([]); // DEBUG LOGS
     const { toast } = useToast();
-
-    const addLog = (msg: string) => {
-        setLogs(prev => [...prev, `${new Date().toLocaleTimeString()}: ${msg}`]);
-        console.log(msg);
-    };
 
     const isWorkHoursValid = officeSettings.work_start && officeSettings.work_end;
 
@@ -153,14 +147,9 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
 
     // Ensure user is signed in anonymously to allow Storage uploads and Firestore updates
     useEffect(() => {
-        if (auth) {
-             addLog(`Auth initialized. User: ${auth.currentUser ? auth.currentUser.uid : 'None'}`);
-        }
         if (auth && !auth.currentUser) {
-            addLog("Signing in anonymously...");
             signInAnonymously(auth)
-                .then(creds => addLog(`Signed in as ${creds.user.uid}`))
-                .catch(err => addLog(`Anonymous auth failed: ${err.message}`));
+                .catch(err => console.error(`Anonymous auth failed: ${err.message}`));
         }
     }, [auth]);
 
@@ -286,9 +275,7 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
     // async function uploadToFirebase(file: File): Promise<string> { ... } // REMOVED: Using Base64 instead
 
     const handleSubmitAttendance = async (photoFile: File) => {
-        addLog("Submitting attendance...");
         if (!db || !selectedEmployeeId || locationState.status !== 'success') {
-             addLog("Validation failed: DB, Employee, or Location missing");
              return;
         }
 
@@ -299,9 +286,8 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
         try {
             // Convert to Base64 directly - No Firebase Storage needed
             photoUrl = await fileToDataUrl(photoFile);
-            addLog(`Base64 generated. Length: ${photoUrl.length}`);
         } catch (uploadError: any) {
-            addLog(`Image conversion failed: ${uploadError.message}`);
+            console.error(`Image conversion failed: ${uploadError.message}`);
             toast({
                 variant: 'destructive',
                 title: 'Processing Error',
@@ -313,7 +299,6 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
 
 
         if (todaysLog && todaysLog.id && !todaysLog.checkOutTime) { // CHECK-OUT
-            addLog("Processing Check-OUT");
             const logRef = doc(db, 'worklogs', todaysLog.id);
             const checkOutTime = new Date();
 
@@ -338,21 +323,18 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
 
             try {
                 await updateDoc(logRef, updateData);
-                addLog("Check-out success!");
                 triggerConfetti();
                 toast({ title: "Check-out berhasil!", description: "Anda telah berhasil check-out." });
                 await revalidateDashboard(true);
                 handleEmployeeChange('');
             } catch (serverError: any) {
-                addLog(`Check-out failed: ${serverError.message} (${serverError.code})`);
+                console.error(`Check-out failed: ${serverError.message} (${serverError.code})`);
                 const permissionError = new FirestorePermissionError({ path: `worklogs/${todaysLog.id}`, operation: 'update', requestResourceData: { id: todaysLog.id } });
                 errorEmitter.emit('permission-error', permissionError);
                 toast({ variant: 'destructive', title: 'Check Out Error', description: "Could not update your work log. Please try again." });
             }
         } else if (!todaysLog) { // CHECK-IN
-            addLog("Processing Check-IN");
             if (!isWorkHoursValid) {
-                addLog("Work hours invalid");
                 return; // Guard against missing settings
             }
 
@@ -375,14 +357,13 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
 
             addDoc(collection(db, 'worklogs'), newLog)
                 .then(async () => {
-                    addLog("Check-in success!");
                     triggerConfetti();
                     toast({ title: "Check-in berhasil!", description: `Status Anda: ${status}.` });
                     await revalidateDashboard(true);
                     await fetchTodaysLog(selectedEmployeeId);
                 })
                 .catch((serverError) => {
-                    addLog(`Check-in failed: ${serverError.message} (${serverError.code})`);
+                    console.error(`Check-in failed: ${serverError.message} (${serverError.code})`);
                     const permissionError = new FirestorePermissionError({ path: 'worklogs', operation: 'create', requestResourceData: newLog });
                     errorEmitter.emit('permission-error', permissionError);
                     toast({ variant: 'destructive', title: 'Check In Error', description: "Anda mungkin sudah check-in hari ini, atau terjadi kesalahan izin." });
@@ -426,15 +407,12 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
     }
 
     const handleCapture = async (photoBlob: Blob) => {
-        addLog(`Captured. Original size: ${photoBlob.size}`);
         const options = { maxSizeMB: 0.1, maxWidthOrHeight: 600, useWebWorker: false };
         try {
             const compressedBlob = await (imageCompression as any).default(photoBlob, options);
-            addLog(`Compressed size: ${compressedBlob.size}`);
             const photoFile = new File([compressedBlob], "capture.jpg", { type: "image/jpeg" });
             await handleSubmitAttendance(photoFile);
         } catch (error: any) {
-            addLog(`Compression failed: ${error.message}`);
             console.error("Image compression or capture handling failed", error);
             toast({ variant: 'destructive', title: 'Error', description: 'Could not process image.' });
         }
@@ -819,11 +797,6 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
                         <div className="text-center pb-1 text-[10px] uppercase tracking-widest text-muted-foreground/30">
                             v2.5 UI Remaster
                         </div>
-                        {logs.length > 0 && (
-                            <div className="mx-6 mb-6 p-2 bg-black text-green-400 font-mono text-xs h-32 overflow-y-auto rounded border border-green-900 shadow-inner">
-                                {logs.map((log, i) => <div key={i}>{log}</div>)}
-                            </div>
-                        )}
                     </CardContent>
                     {installPromptEvent && (
                         <CardFooter>
