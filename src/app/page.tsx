@@ -109,13 +109,16 @@ export default function Home() {
             </Alert>
        )}
        <CheckInClientPage employees={employees || []} officeSettings={officeSettings} />
-        <footer className="mt-8 text-center text-sm text-muted-foreground">
+        <footer className="mt-8 text-center text-sm text-muted-foreground flex flex-col gap-2">
           <Link href="/login">
             <Button variant="ghost" size="sm">
               <LogIn className="mr-2 h-4 w-4" />
               Admin Login
             </Button>
           </Link>
+          <div className="text-[10px] opacity-50">
+            System v2.3 (Verified) - {new Date().toISOString()}
+          </div>
         </footer>
     </main>
   );
