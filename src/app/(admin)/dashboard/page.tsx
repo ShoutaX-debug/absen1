@@ -6,6 +6,7 @@ import { OverviewCards } from '@/components/dashboard/overview-cards';
 import { RecentAttendance } from '@/components/dashboard/recent-attendance';
 import { LeaveRequests } from '@/components/dashboard/leave-requests';
 import { DeleteActivityButton } from '@/components/dashboard/delete-activity-button';
+import { ExportButtons } from '@/components/dashboard/export-buttons';
 import { useDashboardData } from '@/hooks/use-dashboard-data';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -75,7 +76,10 @@ export default function DashboardPage() {
       <div className="flex flex-col gap-4 md:gap-8">
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-semibold md:text-2xl">Admin Dashboard</h1>
-          <DeleteActivityButton />
+          <div className="flex gap-2">
+             <ExportButtons logs={allWorkLogs} employees={employees} />
+             <DeleteActivityButton />
+          </div>
         </div>
 
         {pendingLeaveRequests.length > 0 && (

@@ -20,7 +20,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, CheckCircle, Info, Loader2, ArrowLeft, UserCheck, LocateFixed, Download, CalendarCheck, Clock, Check, ShieldCheck, MapPin, Camera, Sparkles } from 'lucide-react';
+import { AlertCircle, CheckCircle, Info, Loader2, ArrowLeft, UserCheck, LocateFixed, Download, CalendarCheck, Clock, Check, ShieldCheck, MapPin, Camera } from 'lucide-react';
 import { EmployeeSelect } from '@/components/employee-select';
 import { CameraCapture } from '@/components/camera-capture';
 import { FormButton } from '@/components/form-button';
@@ -31,9 +31,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { revalidateDashboard } from '@/app/actions';
 import { format, parse } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { motion, AnimatePresence } from 'framer-motion';
-import { AnimatedBackground } from '@/components/ui/animated-background';
-import { triggerConfetti } from '@/lib/confetti';
 
 // --- TYPES ---
 interface BeforeInstallPromptEvent extends Event {
@@ -91,24 +88,9 @@ function LiveClock() {
         const interval = setInterval(() => setTime(new Date()), 1000);
         return () => clearInterval(interval);
     }, []);
-
-    const hour = time.getHours();
-    let greeting = "Selamat Pagi";
-    if (hour >= 11 && hour < 15) greeting = "Selamat Siang";
-    else if (hour >= 15 && hour < 18) greeting = "Selamat Sore";
-    else if (hour >= 18) greeting = "Selamat Malam";
-
     return (
         <div className="flex flex-col items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              key={greeting}
-              className="text-sm font-medium text-primary mb-1 uppercase tracking-widest"
-            >
-                {greeting}
-            </motion.div>
-            <div className="text-4xl font-bold tabular-nums tracking-tight text-foreground">
+             <div className="text-4xl font-bold tabular-nums tracking-tight text-foreground">
                 {time.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
             </div>
             <div className="text-sm text-muted-foreground font-medium">
@@ -137,13 +119,6 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
     const { toast } = useToast();
 
     const isWorkHoursValid = officeSettings.work_start && officeSettings.work_end;
-
-    // Trigger haptic feedback
-    const vibrate = () => {
-        if (typeof navigator !== 'undefined' && navigator.vibrate) {
-            navigator.vibrate(50);
-        }
-    }
 
     // Ensure user is signed in anonymously to allow Storage uploads and Firestore updates
     useEffect(() => {
@@ -204,19 +179,16 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
 
 
     const handleInstallClick = async () => {
-        vibrate();
         if (!installPromptEvent) return;
         installPromptEvent.prompt();
         const { outcome } = await installPromptEvent.userChoice;
         if (outcome === 'accepted') {
-            triggerConfetti();
             toast({ title: 'Success', description: 'Aplikasi telah berhasil di-install!' });
         }
         setInstallPromptEvent(null);
     };
 
     const handleGetLocation = useCallback(() => {
-        vibrate();
         if (!navigator.geolocation) {
             setLocationState({ status: 'error', message: 'Geolocation is not supported by your browser.' });
             return;
@@ -323,7 +295,6 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
 
             try {
                 await updateDoc(logRef, updateData);
-                triggerConfetti();
                 toast({ title: "Check-out berhasil!", description: "Anda telah berhasil check-out." });
                 await revalidateDashboard(true);
                 handleEmployeeChange('');
@@ -357,7 +328,6 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
 
             addDoc(collection(db, 'worklogs'), newLog)
                 .then(async () => {
-                    triggerConfetti();
                     toast({ title: "Check-in berhasil!", description: `Status Anda: ${status}.` });
                     await revalidateDashboard(true);
                     await fetchTodaysLog(selectedEmployeeId);
@@ -376,7 +346,6 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
 
     const handleRequestLeave = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        vibrate();
         if (!db || !selectedEmployeeId || !leaveNote) return;
         setIsActionPending(true);
         const newLog = {
@@ -431,18 +400,12 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
 
     if (showCamera) {
         return (
-            <div className="min-h-screen w-full flex justify-center items-start pt-4 sm:pt-10 p-4 relative">
-                <AnimatedBackground />
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  className="w-full max-w-md space-y-4 relative z-10"
-                >
+            <div className="min-h-screen w-full flex justify-center items-start pt-4 sm:pt-10 bg-gradient-to-b from-blue-50/50 to-white dark:from-gray-950 dark:to-gray-900 p-4">
+                <div className="w-full max-w-md space-y-4">
                     <Button variant="ghost" size="sm" onClick={() => setShowCamera(false)} className="text-muted-foreground hover:text-foreground">
                         <ArrowLeft className="h-4 w-4 mr-1" /> Kembali
                     </Button>
-                    <Card className="border-0 shadow-xl overflow-hidden bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl">
+                    <Card className="border-0 shadow-xl overflow-hidden">
                          <CardHeader className="pb-2 bg-muted/30">
                             <CardTitle className="text-center text-lg">Ambil Foto</CardTitle>
                         </CardHeader>
@@ -450,7 +413,7 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
                             <CameraCapture onCapture={handleCapture} isProcessing={isActionPending} />
                         </CardContent>
                     </Card>
-                </motion.div>
+                </div>
             </div>
         );
     }
@@ -463,11 +426,7 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
         if (todaysLog.leaveApprovalStatus === 'rejected') variant = 'destructive';
 
         return (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-center py-8 text-muted-foreground space-y-3"
-            >
+            <div className="text-center py-8 text-muted-foreground space-y-3">
                 <CalendarCheck className="h-10 w-10 mx-auto mb-2 text-primary" />
                 <p className="font-semibold">Pengajuan Izin/Sakit Ditemukan</p>
                 <p className="text-sm">
@@ -475,42 +434,32 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
                 </p>
                 {todaysLog.leaveNote && <p className="text-sm italic border-l-2 pl-2 text-left ml-4">Catatan: "{todaysLog.leaveNote}"</p>}
                 <p className="text-xs pt-4">Anda sudah mengajukan izin untuk hari ini. Tidak ada aksi lebih lanjut yang diperlukan.</p>
-            </motion.div>
+            </div>
         )
     };
 
     const renderAttendanceCompleteScreen = () => {
         if (!todaysLog) return null;
         return (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ type: "spring", stiffness: 200, damping: 20 }}
-              className="flex flex-col items-center justify-center py-8 space-y-4"
-            >
-                <motion.div
-                  initial={{ rotate: -180, scale: 0 }}
-                  animate={{ rotate: 0, scale: 1 }}
-                  transition={{ delay: 0.2, type: "spring" }}
-                  className="h-24 w-24 bg-gradient-to-tr from-green-100 to-green-50 dark:from-green-900/40 dark:to-green-800/20 rounded-full flex items-center justify-center mb-2 ring-4 ring-green-50 dark:ring-green-900/10 shadow-lg"
-                >
-                    <Check className="h-12 w-12 text-green-600 dark:text-green-400" />
-                </motion.div>
+            <div className="flex flex-col items-center justify-center py-8 space-y-4 animate-in fade-in zoom-in duration-300">
+                <div className="h-20 w-20 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-2">
+                    <Check className="h-10 w-10 text-green-600 dark:text-green-400" />
+                </div>
                 <div className="text-center space-y-1">
-                    <h3 className="font-bold text-2xl text-foreground">Absensi Lengkap</h3>
+                    <h3 className="font-bold text-xl text-foreground">Absensi Lengkap</h3>
                     <p className="text-muted-foreground">Terima kasih atas kerja keras Anda hari ini!</p>
                 </div>
                 <div className="grid grid-cols-2 gap-4 w-full mt-6">
-                    <motion.div whileHover={{ scale: 1.05 }} className="bg-muted/50 p-4 rounded-xl text-center border hover:border-primary/20 transition-colors">
+                    <div className="bg-muted/50 p-4 rounded-xl text-center">
                         <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Masuk</p>
                         <p className="font-bold text-lg"><ClientOnlyTime dateString={todaysLog.checkInTime} /></p>
-                    </motion.div>
-                    <motion.div whileHover={{ scale: 1.05 }} className="bg-muted/50 p-4 rounded-xl text-center border hover:border-primary/20 transition-colors">
+                    </div>
+                    <div className="bg-muted/50 p-4 rounded-xl text-center">
                          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Pulang</p>
                          <p className="font-bold text-lg"><ClientOnlyTime dateString={todaysLog.checkOutTime} /></p>
-                    </motion.div>
+                    </div>
                 </div>
-            </motion.div>
+            </div>
         )
     };
 
@@ -523,15 +472,8 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
         const canCheckOut = workEndTime ? now >= workEndTime : true;
 
         return (
-            <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="space-y-6"
-            >
-                <div className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/30 dark:to-blue-900/20 p-6 rounded-xl border border-blue-100 dark:border-blue-900 text-center shadow-sm relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                         <Sparkles className="w-16 h-16 text-blue-500" />
-                    </div>
+            <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+                <div className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/30 dark:to-blue-900/20 p-6 rounded-xl border border-blue-100 dark:border-blue-900 text-center shadow-sm">
                     <p className="text-sm text-blue-600 dark:text-blue-400 font-medium mb-1">Waktu Masuk</p>
                     <p className="text-3xl font-bold text-foreground"><ClientOnlyTime dateString={todaysLog.checkInTime} /></p>
                 </div>
@@ -552,7 +494,7 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
 
                 <div className="space-y-3">
                     {locationState.status === 'idle' && (
-                        <Button onClick={handleGetLocation} size="lg" className="w-full h-12 text-base shadow-md transition-all hover:scale-[1.02] active:scale-95">
+                        <Button onClick={handleGetLocation} size="lg" className="w-full h-12 text-base shadow-md transition-all hover:scale-[1.02]">
                             <LocateFixed className="mr-2 h-5 w-5" /> Dapatkan Lokasi & Check Out
                         </Button>
                     )}
@@ -574,11 +516,7 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
                     )}
 
                     {locationState.status === 'success' && (
-                        <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            className="space-y-4"
-                        >
+                        <div className="space-y-4">
                             <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-4 rounded-lg flex items-center gap-3">
                                 <div className="bg-green-100 dark:bg-green-800 p-2 rounded-full">
                                     <MapPin className="h-5 w-5 text-green-700 dark:text-green-400" />
@@ -588,13 +526,13 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
                                     <p className="text-xs text-green-700/80 dark:text-green-500/80">Siap untuk check-out.</p>
                                 </div>
                             </div>
-                            <Button onClick={() => setShowCamera(true)} size="lg" className="w-full h-12 text-base shadow-md bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white border-0 transition-all hover:scale-[1.02] active:scale-95">
+                            <Button onClick={() => setShowCamera(true)} size="lg" className="w-full h-12 text-base shadow-md bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white border-0 transition-all hover:scale-[1.02]">
                                 <Camera className="mr-2 h-5 w-5" /> Ambil Foto Pulang
                             </Button>
-                        </motion.div>
+                        </div>
                     )}
                 </div>
-            </motion.div>
+            </div>
         )
     };
 
@@ -624,14 +562,10 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
         }
 
         return (
-            <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="space-y-6"
-            >
+            <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
                 <div className="space-y-4">
                     {locationState.status === 'idle' && (
-                        <Button onClick={handleGetLocation} size="lg" className="w-full h-12 text-base shadow-md transition-all hover:scale-[1.02] active:scale-95">
+                        <Button onClick={handleGetLocation} size="lg" className="w-full h-12 text-base shadow-md transition-all hover:scale-[1.02]">
                             <LocateFixed className="mr-2 h-5 w-5" /> Dapatkan Lokasi & Check In
                         </Button>
                     )}
@@ -653,11 +587,7 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
                     )}
 
                     {locationState.status === 'success' && officeSettings && distance !== null && (
-                        <motion.div
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="space-y-4"
-                        >
+                        <div className="space-y-4">
                             {distance <= officeSettings.radius ? (
                                 <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-4 rounded-lg flex gap-3">
                                      <div className="bg-green-100 dark:bg-green-800 p-2 rounded-full h-fit">
@@ -688,11 +618,11 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
                                 onClick={() => setShowCamera(true)}
                                 disabled={distance > officeSettings.radius}
                                 size="lg"
-                                className="w-full h-12 text-base shadow-md bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white border-0 transition-all hover:scale-[1.02] active:scale-95"
+                                className="w-full h-12 text-base shadow-md bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white border-0 transition-all hover:scale-[1.02]"
                             >
                                 <Camera className="mr-2 h-5 w-5" /> Lanjut Ambil Foto
                             </Button>
-                        </motion.div>
+                        </div>
                     )}
                 </div>
 
@@ -720,7 +650,7 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
                         Kirim Pengajuan
                     </FormButton>
                 </form>
-            </motion.div>
+            </div>
         );
     };
 
@@ -749,65 +679,39 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
 
 
     return (
-        <div className="min-h-screen w-full flex justify-center items-start pt-4 sm:pt-10 p-4 relative">
-            <AnimatedBackground />
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="w-full max-w-md relative z-10"
-            >
-                <Card className="border-0 shadow-2xl bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl overflow-hidden ring-1 ring-gray-900/5 dark:ring-white/10">
-                    <CardHeader className="pb-2 bg-gradient-to-b from-white/50 to-transparent dark:from-gray-800/50">
-                        <div className="flex flex-col items-center text-center space-y-2">
-                            <motion.div
-                                initial={{ scale: 0 }}
-                                animate={{ scale: 1 }}
-                                transition={{ type: "spring", delay: 0.2 }}
-                                className="p-3 bg-primary/10 rounded-2xl mb-1 shadow-inner"
-                            >
-                                <ShieldCheck className="h-8 w-8 text-primary" />
-                            </motion.div>
-                            <div>
-                                <CardTitle className="text-xl">Portal Kehadiran</CardTitle>
-                                <CardDescription>Silakan isi data kehadiran Anda.</CardDescription>
-                            </div>
+        <div className="min-h-screen w-full flex justify-center items-start pt-4 sm:pt-10 bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 p-4">
+            <Card className="w-full max-w-md border-0 shadow-2xl bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm overflow-hidden ring-1 ring-gray-900/5 dark:ring-white/10">
+                <CardHeader className="pb-2 bg-gradient-to-b from-white to-transparent dark:from-gray-800/50">
+                    <div className="flex flex-col items-center text-center space-y-2">
+                        <div className="p-3 bg-primary/10 rounded-2xl mb-1">
+                            <ShieldCheck className="h-8 w-8 text-primary" />
                         </div>
-                        <LiveClock />
-                    </CardHeader>
-                    <CardContent className="space-y-6 pt-2">
-                        <div className="space-y-2">
-                            <Label htmlFor="employee" className="text-xs font-semibold uppercase text-muted-foreground ml-1">Nama Karyawan</Label>
-                            <EmployeeSelect employees={employees} onSelect={handleEmployeeChange} disabled={isProcessing || locationState.status === 'loading'} value={selectedEmployeeId} />
+                        <div>
+                            <CardTitle className="text-xl">Portal Kehadiran</CardTitle>
+                            <CardDescription>Silakan isi data kehadiran Anda.</CardDescription>
                         </div>
-
-                        <AnimatePresence mode='wait'>
-                            <motion.div
-                                key={selectedEmployeeId || 'empty'}
-                                initial={{ opacity: 0, x: 20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -20 }}
-                                transition={{ duration: 0.2 }}
-                            >
-                                {renderContent()}
-                            </motion.div>
-                        </AnimatePresence>
-
-                        <div className="text-center pb-1 text-[10px] uppercase tracking-widest text-muted-foreground/30">
-                            v2.5 UI Remaster
-                        </div>
-                    </CardContent>
-                    {installPromptEvent && (
-                        <CardFooter>
-                            <Button onClick={handleInstallClick} variant="install" className="w-full shadow-lg hover:shadow-xl transition-all">
-                                <Download className="mr-2 h-4 w-4" />
-                                Install Aplikasi
-                            </Button>
-                        </CardFooter>
-                    )}
-                </Card>
-            </motion.div>
+                    </div>
+                    <LiveClock />
+                </CardHeader>
+                <CardContent className="space-y-6 pt-2">
+                    <div className="space-y-2">
+                        <Label htmlFor="employee" className="text-xs font-semibold uppercase text-muted-foreground ml-1">Nama Karyawan</Label>
+                        <EmployeeSelect employees={employees} onSelect={handleEmployeeChange} disabled={isProcessing || locationState.status === 'loading'} value={selectedEmployeeId} />
+                    </div>
+                    {renderContent()}
+                    <div className="text-center pb-1 text-[10px] uppercase tracking-widest text-muted-foreground/30">
+                        v2.2 UI Remaster
+                    </div>
+                </CardContent>
+                {installPromptEvent && (
+                    <CardFooter>
+                        <Button onClick={handleInstallClick} variant="install" className="w-full">
+                            <Download className="mr-2 h-4 w-4" />
+                            Install Aplikasi
+                        </Button>
+                    </CardFooter>
+                )}
+            </Card>
         </div>
     );
 }
