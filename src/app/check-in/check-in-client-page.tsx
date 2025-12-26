@@ -526,7 +526,7 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
                                     <p className="text-xs text-green-700/80 dark:text-green-500/80">Siap untuk check-out.</p>
                                 </div>
                             </div>
-                            <Button onClick={() => setShowCamera(true)} variant="destructive" size="lg" className="w-full h-12 text-base shadow-md transition-all hover:scale-[1.02]">
+                            <Button onClick={() => setShowCamera(true)} variant="default" size="lg" className="w-full h-12 text-base shadow-md transition-all hover:scale-[1.02]">
                                 <Camera className="mr-2 h-5 w-5" /> Ambil Foto Pulang
                             </Button>
                         </div>
