@@ -5,6 +5,7 @@ A modern, mobile-first Attendance Management System built with Next.js 15 and Fi
 ## 🚀 Features
 
 ### 📱 Employee Portal (PWA)
+- **Fluid Animations:** Smooth transitions, micro-interactions, and visual feedback for a modern user experience ("Yang Bagus").
 - **Geolocation Fencing:** Ensures employees are within a specified radius of the office before checking in.
 - **Photo Verification:** Captures and compresses photos (Direct Base64 storage) for check-in/out verification.
 - **Smart Check-in:** Automatically marks attendance as "On-Time" or "Late" based on office schedules.
