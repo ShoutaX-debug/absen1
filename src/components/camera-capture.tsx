@@ -13,6 +13,7 @@ interface CameraCaptureProps {
 
 export function CameraCapture({ onCapture, isProcessing = false }: CameraCaptureProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -43,36 +44,18 @@ export function CameraCapture({ onCapture, isProcessing = false }: CameraCapture
         video: { facingMode: 'user' }
       });
       setStream(newStream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = newStream;
 
-        // Multiple event listeners for better compatibility
-        const markReady = () => {
-          console.log('✅ Camera ready');
-          setIsVideoReady(true);
-        };
-
-        videoRef.current.onloadedmetadata = markReady;
-        videoRef.current.onloadeddata = markReady;
-        videoRef.current.oncanplay = markReady;
-        videoRef.current.onplaying = markReady;
-
-        // Fallback: Force ready after 3 seconds if events don't fire
-        setTimeout(() => {
-          console.log('⏱️ Fallback timeout - forcing camera ready');
-          setIsVideoReady(true);
-        }, 3000);
-      }
+      // Note: attachment to videoRef happens in the useEffect below
     } catch (err) {
       console.error("Error accessing camera:", err);
       let message = "An unexpected error occurred while trying to access the camera.";
       if (err instanceof DOMException) {
         if (err.name === 'NotAllowedError') {
-          message = "Camera access was denied. Please enable camera permissions in your browser settings for this site.";
+          message = "Akses kamera ditolak. Mohon izinkan akses kamera di pengaturan browser Anda.";
         } else if (err.name === 'NotFoundError') {
-          message = "No camera was found on your device.";
+          message = "Tidak ada kamera ditemukan di perangkat ini.";
         } else {
-          message = `Could not access camera: ${err.message}. Please check browser permissions.`;
+          message = `Gagal mengakses kamera: ${err.message}.`;
         }
       } else if (err instanceof Error) {
         message = err.message;
@@ -90,24 +73,41 @@ export function CameraCapture({ onCapture, isProcessing = false }: CameraCapture
 
   useEffect(() => {
     startCamera();
-
-    // Cleanup function to stop the camera when the component unmounts
     return () => {
       stopCamera();
-      if (capturedImage) {
-        URL.revokeObjectURL(capturedImage);
-      }
+      if (capturedImage) URL.revokeObjectURL(capturedImage);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Separate effect to bind stream to video element whenever it's ready
+  useEffect(() => {
+      if (videoRef.current && stream) {
+          videoRef.current.srcObject = stream;
+
+          const markReady = () => {
+            console.log('✅ Camera ready event fired');
+            setIsVideoReady(true);
+          };
+
+          videoRef.current.onloadedmetadata = markReady;
+          videoRef.current.oncanplay = markReady;
+
+          // Force ready safety net
+          const timeoutId = setTimeout(() => {
+             if (!isVideoReady) {
+                 console.log('Force ready triggered');
+                 setIsVideoReady(true);
+             }
+          }, 2000);
+
+          return () => clearTimeout(timeoutId);
+      }
+  }, [stream, videoRef]);
+
   const handleCapture = () => {
     if (!isVideoReady || !videoRef.current) {
-      toast({
-        variant: 'destructive',
-        title: 'Capture Failed',
-        description: 'Camera is not ready yet. Please wait a moment.'
-      });
+      toast({ variant: 'destructive', title: 'Capture Failed', description: 'Camera not ready.' });
       return;
     }
 
@@ -115,18 +115,10 @@ export function CameraCapture({ onCapture, isProcessing = false }: CameraCapture
     canvas.width = videoRef.current.videoWidth;
     canvas.height = videoRef.current.videoHeight;
 
-    if (canvas.width === 0 || canvas.height === 0) {
-      toast({
-        variant: 'destructive',
-        title: 'Capture Failed',
-        description: 'Video dimensions not available. Please wait.'
-      });
-      return;
-    }
+    if (canvas.width === 0 || canvas.height === 0) return;
 
     const context = canvas.getContext('2d');
     if (context) {
-      // Flip the image horizontally for a mirror effect
       context.translate(canvas.width, 0);
       context.scale(-1, 1);
       context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
@@ -135,8 +127,8 @@ export function CameraCapture({ onCapture, isProcessing = false }: CameraCapture
         if (blob) {
           const imageUrl = URL.createObjectURL(blob);
           setCapturedImage(imageUrl);
-          onCapture(blob); // Pass blob to parent
-          stopCamera(); // Stop camera after capture
+          onCapture(blob);
+          stopCamera();
         }
       }, 'image/jpeg', 0.9);
     }
@@ -146,56 +138,99 @@ export function CameraCapture({ onCapture, isProcessing = false }: CameraCapture
     startCamera();
   };
 
-  if (error) {
-    return (
-      <Alert variant="destructive">
-        <Camera className="h-4 w-4" />
-        <AlertTitle>Camera Not Available</AlertTitle>
-        <AlertDescription>
-          {error}
-          <Button onClick={startCamera} variant="link" className="p-0 h-auto mt-2 text-destructive">
-            Try Again
-          </Button>
-        </AlertDescription>
-      </Alert>
-    );
-  }
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files[0]) {
+          const file = e.target.files[0];
+          const imageUrl = URL.createObjectURL(file);
+          setCapturedImage(imageUrl);
+          onCapture(file); // Passing File (which is a Blob)
+          stopCamera();
+      }
+  };
 
   return (
-    <div className="w-full space-y-2">
-      <div className="w-full aspect-square bg-muted rounded-md overflow-hidden relative flex items-center justify-center">
+    <div className="w-full space-y-4">
+      {/* Fallback File Input (Hidden but accessible via button if camera fails) */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept="image/*"
+        capture="user"
+        className="hidden"
+        onChange={handleFileUpload}
+      />
+
+      <div className="w-full aspect-square bg-muted rounded-md overflow-hidden relative flex items-center justify-center border shadow-inner">
         {isProcessing && (
-          <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center z-10">
+          <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center z-10 backdrop-blur-sm">
             <Loader2 className="h-10 w-10 text-white animate-spin" />
-            <p className="text-white mt-2">Processing...</p>
+            <p className="text-white mt-2 font-medium">Processing...</p>
           </div>
         )}
-        {!isVideoReady && stream && (
+
+        {/* Error State Overlay */}
+        {error && !capturedImage && (
+             <div className="absolute inset-0 bg-background/90 z-20 flex flex-col items-center justify-center p-4 text-center">
+                 <Camera className="h-8 w-8 text-destructive mb-2" />
+                 <p className="text-sm font-medium text-destructive mb-4">{error}</p>
+                 <Button onClick={() => fileInputRef.current?.click()} variant="default" size="sm">
+                     Upload Foto Manual
+                 </Button>
+                 <Button onClick={startCamera} variant="ghost" size="sm" className="mt-2 text-xs">
+                     Coba Kamera Lagi
+                 </Button>
+             </div>
+        )}
+
+        {!isVideoReady && stream && !capturedImage && !error && (
           <div className="absolute inset-0 bg-black/30 flex flex-col items-center justify-center z-10">
             <Loader2 className="h-8 w-8 text-white animate-spin" />
-            <p className="text-white mt-2 text-sm">Preparing camera...</p>
+            <p className="text-white mt-2 text-sm">Menyiapkan kamera...</p>
           </div>
         )}
+
         {capturedImage ? (
           <img src={capturedImage} alt="Captured" className="w-full h-full object-cover" style={{ transform: 'scaleX(-1)' }} />
         ) : stream ? (
           <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" style={{ transform: 'scaleX(-1)' }} />
         ) : (
-          <div className="flex flex-col items-center justify-center">
-            <Loader2 className="h-10 w-10 text-muted-foreground animate-spin" />
-            <p className="text-muted-foreground mt-2">Starting camera...</p>
+          <div className="flex flex-col items-center justify-center p-4 text-center">
+             {!error && (
+                <>
+                    <Loader2 className="h-8 w-8 text-muted-foreground animate-spin mb-2" />
+                    <p className="text-sm text-muted-foreground">Memulai kamera...</p>
+                </>
+             )}
           </div>
         )}
       </div>
-      <div className="flex gap-2">
+
+      <div className="grid grid-cols-2 gap-2">
         {capturedImage ? (
-          <Button onClick={handleRetake} variant="outline" className="w-full" disabled={isProcessing}>
-            <RefreshCw className="mr-2 h-4 w-4" /> Retake
+          <Button onClick={handleRetake} variant="outline" className="w-full col-span-2" disabled={isProcessing}>
+            <RefreshCw className="mr-2 h-4 w-4" /> Foto Ulang
           </Button>
         ) : (
-          <Button onClick={handleCapture} disabled={!isVideoReady || !stream || isProcessing} className="w-full">
-            <Camera className="mr-2 h-4 w-4" /> {isVideoReady ? 'Capture' : 'Preparing...'}
-          </Button>
+            <>
+             <Button
+                onClick={handleCapture}
+                disabled={!isVideoReady || !stream || isProcessing}
+                className="w-full"
+                variant="default"
+             >
+                <Camera className="mr-2 h-4 w-4" /> {isVideoReady ? 'Ambil Foto' : 'Loading...'}
+             </Button>
+
+             {/* Manual Upload Button always visible as option */}
+             <Button
+                variant="secondary"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isProcessing}
+                className="w-full"
+             >
+                 Upload File
+             </Button>
+            </>
         )}
       </div>
     </div>
