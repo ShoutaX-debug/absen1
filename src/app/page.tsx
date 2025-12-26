@@ -15,24 +15,24 @@ import { Button } from '@/components/ui/button';
 
 function CheckInPageSkeleton() {
     return (
-        <div className="flex justify-center items-start pt-4 sm:pt-10">
-            <Card className="w-full max-w-md animate-pulse">
-                <CardHeader>
-                    <div className="flex items-center gap-3 mb-2">
-                        <Skeleton className="h-10 w-10 rounded-lg" />
-                        <div className="space-y-2">
-                            <Skeleton className="h-6 w-32" />
-                            <Skeleton className="h-4 w-48" />
+        <div className="flex justify-center items-start pt-4 sm:pt-10 animate-fade-in">
+            <Card className="w-full max-w-md shadow-lg border-0 bg-white/50 backdrop-blur-sm">
+                <CardHeader className="animate-pulse">
+                    <div className="flex flex-col items-center gap-4 mb-2">
+                        <Skeleton className="h-16 w-16 rounded-2xl" />
+                        <div className="space-y-2 text-center w-full flex flex-col items-center">
+                            <Skeleton className="h-8 w-48" />
+                            <Skeleton className="h-4 w-64" />
                         </div>
                     </div>
                 </CardHeader>
-                <CardContent className="space-y-6">
-                    <div className="space-y-2">
-                        <Skeleton className="h-4 w-24" />
-                        <Skeleton className="h-10 w-full" />
+                <CardContent className="space-y-8 animate-pulse delay-100">
+                    <div className="space-y-3">
+                        <Skeleton className="h-4 w-32 mx-auto" />
+                        <Skeleton className="h-12 w-full rounded-xl" />
                     </div>
-                    <div className="text-center py-8">
-                        <Skeleton className="h-8 w-8 mx-auto mb-2 rounded-full" />
+                    <div className="text-center py-8 space-y-4">
+                        <Skeleton className="h-12 w-12 mx-auto rounded-full" />
                         <Skeleton className="h-4 w-40 mx-auto" />
                     </div>
                 </CardContent>
@@ -98,9 +98,9 @@ export default function Home() {
   }
 
   return (
-    <main className="flex flex-col items-center p-4">
+    <main className="flex flex-col items-center p-4 min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
        {settingsError && (
-            <Alert variant="warning" className="max-w-md w-full mb-4">
+            <Alert variant="warning" className="max-w-md w-full mb-4 animate-slide-in-up">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle>Peringatan: Gagal Memuat Pengaturan Kantor</AlertTitle>
                 <AlertDescription>
@@ -109,14 +109,14 @@ export default function Home() {
             </Alert>
        )}
        <CheckInClientPage employees={employees || []} officeSettings={officeSettings} />
-        <footer className="mt-8 text-center text-sm text-muted-foreground flex flex-col gap-2">
+        <footer className="mt-8 text-center text-sm text-muted-foreground flex flex-col gap-2 animate-fade-in duration-1000 delay-500">
           <Link href="/login">
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" className="hover:bg-primary/10 hover:text-primary transition-colors">
               <LogIn className="mr-2 h-4 w-4" />
               Admin Login
             </Button>
           </Link>
-          <div className="text-[10px] opacity-50">
+          <div className="text-[10px] opacity-50 hover:opacity-100 transition-opacity cursor-default">
             System v2.3 (Verified) - {new Date().toISOString()}
           </div>
         </footer>

@@ -448,14 +448,17 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
         if (todaysLog.leaveApprovalStatus === 'rejected') variant = 'destructive';
 
         return (
-            <div className="text-center py-8 text-muted-foreground space-y-3">
-                <CalendarCheck className="h-10 w-10 mx-auto mb-2 text-primary" />
-                <p className="font-semibold">Pengajuan Izin/Sakit Ditemukan</p>
+            <div className="text-center py-8 text-muted-foreground space-y-3 animate-in fade-in zoom-in duration-300">
+                <div className="relative">
+                    <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full animate-pulse-soft"></div>
+                    <CalendarCheck className="h-12 w-12 mx-auto mb-2 text-primary relative z-10" />
+                </div>
+                <p className="font-semibold text-lg">Pengajuan Izin/Sakit Ditemukan</p>
                 <p className="text-sm">
                     Status: <Badge variant={variant} className="capitalize">{todaysLog.leaveApprovalStatus}</Badge>
                 </p>
-                {todaysLog.leaveNote && <p className="text-sm italic border-l-2 pl-2 text-left ml-4">Catatan: "{todaysLog.leaveNote}"</p>}
-                <p className="text-xs pt-4">Anda sudah mengajukan izin untuk hari ini. Tidak ada aksi lebih lanjut yang diperlukan.</p>
+                {todaysLog.leaveNote && <p className="text-sm italic border-l-2 pl-2 text-left ml-4 bg-muted/30 p-2 rounded-r-md">Catatan: "{todaysLog.leaveNote}"</p>}
+                <p className="text-xs pt-4 opacity-75">Anda sudah mengajukan izin untuk hari ini. Tidak ada aksi lebih lanjut yang diperlukan.</p>
             </div>
         )
     };
@@ -463,20 +466,20 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
     const renderAttendanceCompleteScreen = () => {
         if (!todaysLog) return null;
         return (
-            <div className="flex flex-col items-center justify-center py-8 space-y-4 animate-in fade-in zoom-in duration-300">
-                <div className="h-20 w-20 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-2">
-                    <Check className="h-10 w-10 text-green-600 dark:text-green-400" />
+            <div className="flex flex-col items-center justify-center py-8 space-y-4 animate-in fade-in zoom-in duration-500">
+                <div className="h-24 w-24 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-2 animate-bounce">
+                    <Check className="h-12 w-12 text-green-600 dark:text-green-400" />
                 </div>
                 <div className="text-center space-y-1">
-                    <h3 className="font-bold text-xl text-foreground">Absensi Lengkap</h3>
+                    <h3 className="font-bold text-2xl text-foreground bg-gradient-to-r from-green-600 to-teal-600 bg-clip-text text-transparent">Absensi Lengkap</h3>
                     <p className="text-muted-foreground">Terima kasih atas kerja keras Anda hari ini!</p>
                 </div>
                 <div className="grid grid-cols-2 gap-4 w-full mt-6">
-                    <div className="bg-muted/50 p-4 rounded-xl text-center">
+                    <div className="bg-muted/50 p-4 rounded-xl text-center transform transition-all hover:scale-105 duration-200">
                         <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Masuk</p>
                         <p className="font-bold text-lg"><ClientOnlyTime dateString={todaysLog.checkInTime} /></p>
                     </div>
-                    <div className="bg-muted/50 p-4 rounded-xl text-center">
+                    <div className="bg-muted/50 p-4 rounded-xl text-center transform transition-all hover:scale-105 duration-200">
                          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Pulang</p>
                          <p className="font-bold text-lg"><ClientOnlyTime dateString={todaysLog.checkOutTime} /></p>
                     </div>
@@ -494,14 +497,14 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
         const canCheckOut = workEndTime ? now >= workEndTime : true;
 
         return (
-            <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
-                <div className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/30 dark:to-blue-900/20 p-6 rounded-xl border border-blue-100 dark:border-blue-900 text-center shadow-sm">
+            <div className="space-y-6 animate-slide-in-up">
+                <div className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/30 dark:to-blue-900/20 p-6 rounded-xl border border-blue-100 dark:border-blue-900 text-center shadow-sm transform transition-all hover:shadow-md">
                     <p className="text-sm text-blue-600 dark:text-blue-400 font-medium mb-1">Waktu Masuk</p>
-                    <p className="text-3xl font-bold text-foreground"><ClientOnlyTime dateString={todaysLog.checkInTime} /></p>
+                    <p className="text-4xl font-bold text-foreground tracking-tight"><ClientOnlyTime dateString={todaysLog.checkInTime} /></p>
                 </div>
 
                 {workEndTime && now < workEndTime && (
-                    <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-4 rounded-lg flex gap-3 text-left">
+                    <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-4 rounded-lg flex gap-3 text-left animate-in fade-in slide-in-from-left-2 duration-300">
                          <div className="bg-yellow-100 dark:bg-yellow-800 p-2 rounded-full h-fit">
                             <Clock className="h-5 w-5 text-yellow-700 dark:text-yellow-400" />
                         </div>
@@ -516,7 +519,7 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
 
                 <div className="space-y-3">
                     {locationState.status === 'idle' && (
-                        <Button onClick={handleGetLocation} size="lg" className="w-full h-12 text-base shadow-md transition-all hover:scale-[1.02]">
+                        <Button onClick={handleGetLocation} size="lg" className="w-full h-12 text-base shadow-md transition-all hover:scale-[1.02] active:scale-95 duration-200">
                             <LocateFixed className="mr-2 h-5 w-5" /> Dapatkan Lokasi & Check Out
                         </Button>
                     )}
@@ -529,7 +532,7 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
                     )}
 
                     {locationState.status === 'error' && (
-                        <Alert variant="destructive">
+                        <Alert variant="destructive" className="animate-in shake">
                             <AlertCircle className="h-4 w-4" />
                             <AlertTitle>Gagal Mendapatkan Lokasi</AlertTitle>
                             <AlertDescription>{locationState.message}</AlertDescription>
@@ -538,7 +541,7 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
                     )}
 
                     {locationState.status === 'success' && (
-                        <div className="space-y-4">
+                        <div className="space-y-4 animate-in fade-in zoom-in duration-300">
                             <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-4 rounded-lg flex items-center gap-3">
                                 <div className="bg-green-100 dark:bg-green-800 p-2 rounded-full">
                                     <MapPin className="h-5 w-5 text-green-700 dark:text-green-400" />
@@ -548,7 +551,7 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
                                     <p className="text-xs text-green-700/80 dark:text-green-500/80">Siap untuk check-out.</p>
                                 </div>
                             </div>
-                            <Button onClick={() => setShowCamera(true)} size="lg" className="w-full h-12 text-base shadow-md bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white border-0 transition-all hover:scale-[1.02]">
+                            <Button onClick={() => setShowCamera(true)} size="lg" className="w-full h-12 text-base shadow-md bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white border-0 transition-all hover:scale-[1.02] active:scale-95 duration-200">
                                 <Camera className="mr-2 h-5 w-5" /> Ambil Foto Pulang
                             </Button>
                         </div>
@@ -584,10 +587,10 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
         }
 
         return (
-            <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+            <div className="space-y-6 animate-slide-in-up">
                 <div className="space-y-4">
                     {locationState.status === 'idle' && (
-                        <Button onClick={handleGetLocation} size="lg" className="w-full h-12 text-base shadow-md transition-all hover:scale-[1.02]">
+                        <Button onClick={handleGetLocation} size="lg" className="w-full h-12 text-base shadow-md transition-all hover:scale-[1.02] active:scale-95 duration-200">
                             <LocateFixed className="mr-2 h-5 w-5" /> Dapatkan Lokasi & Check In
                         </Button>
                     )}
@@ -609,7 +612,7 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
                     )}
 
                     {locationState.status === 'success' && officeSettings && distance !== null && (
-                        <div className="space-y-4">
+                        <div className="space-y-4 animate-in fade-in zoom-in duration-300">
                             {distance <= officeSettings.radius ? (
                                 <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-4 rounded-lg flex gap-3">
                                      <div className="bg-green-100 dark:bg-green-800 p-2 rounded-full h-fit">
@@ -640,7 +643,7 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
                                 onClick={() => setShowCamera(true)}
                                 disabled={distance > officeSettings.radius}
                                 size="lg"
-                                className="w-full h-12 text-base shadow-md bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white border-0 transition-all hover:scale-[1.02]"
+                                className="w-full h-12 text-base shadow-md bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white border-0 transition-all hover:scale-[1.02] active:scale-95 duration-200"
                             >
                                 <Camera className="mr-2 h-5 w-5" /> Lanjut Ambil Foto
                             </Button>
@@ -653,7 +656,7 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
                     <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">Atau Ajukan Izin</span></div>
                 </div>
 
-                <form onSubmit={handleRequestLeave} className="space-y-4 bg-muted/30 p-4 rounded-lg border">
+                <form onSubmit={handleRequestLeave} className="space-y-4 bg-muted/30 p-4 rounded-lg border transition-all hover:border-primary/50">
                     <div className="space-y-2">
                         <Label className="text-xs font-semibold uppercase text-muted-foreground">Tipe Izin</Label>
                         <Select name="leaveType" value={leaveType} onValueChange={(v: LeaveType) => setLeaveType(v)}>
@@ -666,7 +669,7 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
                     </div>
                     <div className="space-y-2">
                          <Label className="text-xs font-semibold uppercase text-muted-foreground" htmlFor="note">Alasan</Label>
-                        <Textarea id="note" name="note" className="bg-background resize-none" placeholder="Contoh: Ada urusan keluarga mendesak..." required value={leaveNote} onChange={(e) => setLeaveNote(e.target.value)} />
+                        <Textarea id="note" name="note" className="bg-background resize-none focus-visible:ring-primary" placeholder="Contoh: Ada urusan keluarga mendesak..." required value={leaveNote} onChange={(e) => setLeaveNote(e.target.value)} />
                     </div>
                     <FormButton type="submit" className="w-full" variant="secondary" disabled={isProcessing || locationState.status === 'loading'}>
                         Kirim Pengajuan
@@ -702,7 +705,7 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
 
     return (
         <div className="min-h-screen w-full flex justify-center items-start pt-4 sm:pt-10 bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 p-4">
-            <Card className="w-full max-w-md border-0 shadow-2xl bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm overflow-hidden ring-1 ring-gray-900/5 dark:ring-white/10">
+            <Card className="w-full max-w-md border-0 shadow-2xl bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm overflow-hidden ring-1 ring-gray-900/5 dark:ring-white/10 animate-scale-in duration-500">
                 <CardHeader className="pb-2 bg-gradient-to-b from-white to-transparent dark:from-gray-800/50">
                     <div className="flex flex-col items-center text-center space-y-2">
                         <div className="p-3 bg-primary/10 rounded-2xl mb-1">
