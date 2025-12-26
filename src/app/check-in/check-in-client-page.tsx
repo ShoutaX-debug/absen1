@@ -526,7 +526,7 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
                                     <p className="text-xs text-green-700/80 dark:text-green-500/80">Siap untuk check-out.</p>
                                 </div>
                             </div>
-                            <Button onClick={() => setShowCamera(true)} size="lg" className="w-full h-12 text-base shadow-md bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white border-0 transition-all hover:scale-[1.02]">
+                            <Button onClick={() => setShowCamera(true)} variant="destructive" size="lg" className="w-full h-12 text-base shadow-md transition-all hover:scale-[1.02]">
                                 <Camera className="mr-2 h-5 w-5" /> Ambil Foto Pulang
                             </Button>
                         </div>
@@ -618,7 +618,7 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
                                 onClick={() => setShowCamera(true)}
                                 disabled={distance > officeSettings.radius}
                                 size="lg"
-                                className="w-full h-12 text-base shadow-md bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white border-0 transition-all hover:scale-[1.02]"
+                                className="w-full h-12 text-base shadow-md transition-all hover:scale-[1.02]"
                             >
                                 <Camera className="mr-2 h-5 w-5" /> Lanjut Ambil Foto
                             </Button>
