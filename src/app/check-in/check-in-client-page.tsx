@@ -20,7 +20,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, CheckCircle, Info, Loader2, ArrowLeft, UserCheck, LocateFixed, Download, CalendarCheck, Clock } from 'lucide-react';
+import { AlertCircle, CheckCircle, Info, Loader2, ArrowLeft, UserCheck, LocateFixed, Download, CalendarCheck, Clock, Check, ShieldCheck, MapPin, Camera } from 'lucide-react';
 import { EmployeeSelect } from '@/components/employee-select';
 import { CameraCapture } from '@/components/camera-capture';
 import { FormButton } from '@/components/form-button';
@@ -82,6 +82,23 @@ function ClientOnlyTime({ dateString }: { dateString: string | null }) {
     return <>{isClient ? new Date(dateString).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '--:--'}</>;
 }
 
+function LiveClock() {
+    const [time, setTime] = useState(new Date());
+    useEffect(() => {
+        const interval = setInterval(() => setTime(new Date()), 1000);
+        return () => clearInterval(interval);
+    }, []);
+    return (
+        <div className="flex flex-col items-center justify-center p-4">
+             <div className="text-4xl font-bold tabular-nums tracking-tight text-foreground">
+                {time.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+            </div>
+            <div className="text-sm text-muted-foreground font-medium">
+                {time.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            </div>
+        </div>
+    );
+}
 
 // --- MAIN COMPONENT ---
 export function CheckInClientPage({ employees, officeSettings }: { employees: Employee[], officeSettings: OfficeSettings }) {
@@ -99,15 +116,26 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
 
     const [isTransitioning, startTransition] = useTransition();
     const [isActionPending, setIsActionPending] = useState(false);
+    const [logs, setLogs] = useState<string[]>([]); // DEBUG LOGS
     const { toast } = useToast();
+
+    const addLog = (msg: string) => {
+        setLogs(prev => [...prev, `${new Date().toLocaleTimeString()}: ${msg}`]);
+        console.log(msg);
+    };
 
     const isWorkHoursValid = officeSettings.work_start && officeSettings.work_end;
 
     // Ensure user is signed in anonymously to allow Storage uploads and Firestore updates
     useEffect(() => {
+        if (auth) {
+             addLog(`Auth initialized. User: ${auth.currentUser ? auth.currentUser.uid : 'None'}`);
+        }
         if (auth && !auth.currentUser) {
-            console.log("Signing in anonymously...");
-            signInAnonymously(auth).catch(err => console.error("Anonymous auth failed", err));
+            addLog("Signing in anonymously...");
+            signInAnonymously(auth)
+                .then(creds => addLog(`Signed in as ${creds.user.uid}`))
+                .catch(err => addLog(`Anonymous auth failed: ${err.message}`));
         }
     }, [auth]);
 
@@ -230,7 +258,11 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
     // async function uploadToFirebase(file: File): Promise<string> { ... } // REMOVED: Using Base64 instead
 
     const handleSubmitAttendance = async (photoFile: File) => {
-        if (!db || !selectedEmployeeId || locationState.status !== 'success') return;
+        addLog("Submitting attendance...");
+        if (!db || !selectedEmployeeId || locationState.status !== 'success') {
+             addLog("Validation failed: DB, Employee, or Location missing");
+             return;
+        }
 
         setIsActionPending(true);
 
@@ -239,8 +271,9 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
         try {
             // Convert to Base64 directly - No Firebase Storage needed
             photoUrl = await fileToDataUrl(photoFile);
+            addLog(`Base64 generated. Length: ${photoUrl.length}`);
         } catch (uploadError: any) {
-            console.error("Image conversion failed", uploadError);
+            addLog(`Image conversion failed: ${uploadError.message}`);
             toast({
                 variant: 'destructive',
                 title: 'Processing Error',
@@ -252,6 +285,7 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
 
 
         if (todaysLog && todaysLog.id && !todaysLog.checkOutTime) { // CHECK-OUT
+            addLog("Processing Check-OUT");
             const logRef = doc(db, 'worklogs', todaysLog.id);
             const checkOutTime = new Date();
 
@@ -276,16 +310,22 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
 
             try {
                 await updateDoc(logRef, updateData);
+                addLog("Check-out success!");
                 toast({ title: "Check-out berhasil!", description: "Anda telah berhasil check-out." });
                 await revalidateDashboard(true);
                 handleEmployeeChange('');
-            } catch (serverError) {
+            } catch (serverError: any) {
+                addLog(`Check-out failed: ${serverError.message} (${serverError.code})`);
                 const permissionError = new FirestorePermissionError({ path: `worklogs/${todaysLog.id}`, operation: 'update', requestResourceData: { id: todaysLog.id } });
                 errorEmitter.emit('permission-error', permissionError);
                 toast({ variant: 'destructive', title: 'Check Out Error', description: "Could not update your work log. Please try again." });
             }
         } else if (!todaysLog) { // CHECK-IN
-            if (!isWorkHoursValid) return; // Guard against missing settings
+            addLog("Processing Check-IN");
+            if (!isWorkHoursValid) {
+                addLog("Work hours invalid");
+                return; // Guard against missing settings
+            }
 
             const now = new Date();
             const workStartTime = parse(officeSettings.work_start!, 'HH:mm', new Date());
@@ -306,11 +346,13 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
 
             addDoc(collection(db, 'worklogs'), newLog)
                 .then(async () => {
+                    addLog("Check-in success!");
                     toast({ title: "Check-in berhasil!", description: `Status Anda: ${status}.` });
                     await revalidateDashboard(true);
                     await fetchTodaysLog(selectedEmployeeId);
                 })
                 .catch((serverError) => {
+                    addLog(`Check-in failed: ${serverError.message} (${serverError.code})`);
                     const permissionError = new FirestorePermissionError({ path: 'worklogs', operation: 'create', requestResourceData: newLog });
                     errorEmitter.emit('permission-error', permissionError);
                     toast({ variant: 'destructive', title: 'Check In Error', description: "Anda mungkin sudah check-in hari ini, atau terjadi kesalahan izin." });
@@ -353,12 +395,15 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
     }
 
     const handleCapture = async (photoBlob: Blob) => {
+        addLog(`Captured. Original size: ${photoBlob.size}`);
         const options = { maxSizeMB: 0.1, maxWidthOrHeight: 600, useWebWorker: false };
         try {
             const compressedBlob = await (imageCompression as any).default(photoBlob, options);
+            addLog(`Compressed size: ${compressedBlob.size}`);
             const photoFile = new File([compressedBlob], "capture.jpg", { type: "image/jpeg" });
             await handleSubmitAttendance(photoFile);
-        } catch (error) {
+        } catch (error: any) {
+            addLog(`Compression failed: ${error.message}`);
             console.error("Image compression or capture handling failed", error);
             toast({ variant: 'destructive', title: 'Error', description: 'Could not process image.' });
         }
@@ -377,12 +422,19 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
 
     if (showCamera) {
         return (
-            <div className="flex justify-center items-start pt-4 sm:pt-10">
-                <div className="w-full max-w-md">
-                    <button onClick={() => setShowCamera(false)} className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                        <ArrowLeft className="h-4 w-4" /> Back to Portal
-                    </button>
-                    <CameraCapture onCapture={handleCapture} isProcessing={isActionPending} />
+            <div className="min-h-screen w-full flex justify-center items-start pt-4 sm:pt-10 bg-gradient-to-b from-blue-50/50 to-white dark:from-gray-950 dark:to-gray-900 p-4">
+                <div className="w-full max-w-md space-y-4">
+                    <Button variant="ghost" size="sm" onClick={() => setShowCamera(false)} className="text-muted-foreground hover:text-foreground">
+                        <ArrowLeft className="h-4 w-4 mr-1" /> Kembali
+                    </Button>
+                    <Card className="border-0 shadow-xl overflow-hidden">
+                         <CardHeader className="pb-2 bg-muted/30">
+                            <CardTitle className="text-center text-lg">Ambil Foto</CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-4">
+                            <CameraCapture onCapture={handleCapture} isProcessing={isActionPending} />
+                        </CardContent>
+                    </Card>
                 </div>
             </div>
         );
@@ -411,11 +463,24 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
     const renderAttendanceCompleteScreen = () => {
         if (!todaysLog) return null;
         return (
-            <div className="text-center py-8 text-muted-foreground">
-                <CheckCircle className="h-10 w-10 mx-auto mb-2 text-green-500" />
-                <p className="font-semibold">Absensi Hari Ini Sudah Lengkap</p>
-                <p className="text-sm">Check-in: <ClientOnlyTime dateString={todaysLog.checkInTime} /></p>
-                <p className="text-sm">Check-out: <ClientOnlyTime dateString={todaysLog.checkOutTime} /></p>
+            <div className="flex flex-col items-center justify-center py-8 space-y-4 animate-in fade-in zoom-in duration-300">
+                <div className="h-20 w-20 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-2">
+                    <Check className="h-10 w-10 text-green-600 dark:text-green-400" />
+                </div>
+                <div className="text-center space-y-1">
+                    <h3 className="font-bold text-xl text-foreground">Absensi Lengkap</h3>
+                    <p className="text-muted-foreground">Terima kasih atas kerja keras Anda hari ini!</p>
+                </div>
+                <div className="grid grid-cols-2 gap-4 w-full mt-6">
+                    <div className="bg-muted/50 p-4 rounded-xl text-center">
+                        <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Masuk</p>
+                        <p className="font-bold text-lg"><ClientOnlyTime dateString={todaysLog.checkInTime} /></p>
+                    </div>
+                    <div className="bg-muted/50 p-4 rounded-xl text-center">
+                         <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Pulang</p>
+                         <p className="font-bold text-lg"><ClientOnlyTime dateString={todaysLog.checkOutTime} /></p>
+                    </div>
+                </div>
             </div>
         )
     };
@@ -429,27 +494,66 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
         const canCheckOut = workEndTime ? now >= workEndTime : true;
 
         return (
-            <div className="space-y-4 text-center">
-                <div className="p-4 bg-muted/50 rounded-lg">
-                    <p className="text-sm text-muted-foreground">Anda check-in pada pukul:</p>
-                    <p className="text-2xl font-bold"><ClientOnlyTime dateString={todaysLog.checkInTime} /></p>
+            <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+                <div className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/30 dark:to-blue-900/20 p-6 rounded-xl border border-blue-100 dark:border-blue-900 text-center shadow-sm">
+                    <p className="text-sm text-blue-600 dark:text-blue-400 font-medium mb-1">Waktu Masuk</p>
+                    <p className="text-3xl font-bold text-foreground"><ClientOnlyTime dateString={todaysLog.checkInTime} /></p>
                 </div>
+
                 {workEndTime && now < workEndTime && (
-                    <Alert variant='warning'>
-                        <Clock className="h-4 w-4" />
-                        <AlertTitle>Belum Waktunya Pulang</AlertTitle>
-                        <AlertDescription>Jam kerja berakhir pukul {officeSettings.work_end}. Check-out sebelum waktunya akan tercatat.</AlertDescription>
-                    </Alert>
+                    <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-4 rounded-lg flex gap-3 text-left">
+                         <div className="bg-yellow-100 dark:bg-yellow-800 p-2 rounded-full h-fit">
+                            <Clock className="h-5 w-5 text-yellow-700 dark:text-yellow-400" />
+                        </div>
+                        <div>
+                            <p className="font-semibold text-yellow-800 dark:text-yellow-400 text-sm">Belum Waktunya Pulang</p>
+                            <p className="text-xs text-yellow-700/80 dark:text-yellow-500/80 mt-1">
+                                Jam kerja berakhir pukul {officeSettings.work_end}.
+                            </p>
+                        </div>
+                    </div>
                 )}
-                {locationState.status === 'idle' && <Button onClick={handleGetLocation} className="w-full"><LocateFixed className="mr-2 h-4 w-4" /> Dapatkan Lokasi & Check Out</Button>}
-                {locationState.status === 'loading' && <div className="flex items-center justify-center p-4"><Loader2 className="h-6 w-6 animate-spin" /> <span className="ml-2">{locationState.message}</span></div>}
-                {locationState.status === 'error' && <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Error Lokasi</AlertTitle><AlertDescription>{locationState.message}</AlertDescription><Button variant="link" size="sm" onClick={handleGetLocation} className="p-0 h-auto mt-2">Coba Lagi</Button></Alert>}
-                {locationState.status === 'success' && (
-                    <>
-                        <Alert variant="success"><CheckCircle className="h-4 w-4" /><AlertTitle>Lokasi Diterima</AlertTitle><AlertDescription>Silakan lanjutkan untuk check-out.</AlertDescription></Alert>
-                        <Button onClick={() => setShowCamera(true)} className="w-full">Lanjut Ambil Foto Check-out</Button>
-                    </>
-                )}
+
+                <div className="space-y-3">
+                    {locationState.status === 'idle' && (
+                        <Button onClick={handleGetLocation} size="lg" className="w-full h-12 text-base shadow-md transition-all hover:scale-[1.02]">
+                            <LocateFixed className="mr-2 h-5 w-5" /> Dapatkan Lokasi & Check Out
+                        </Button>
+                    )}
+
+                    {locationState.status === 'loading' && (
+                        <div className="flex flex-col items-center justify-center p-6 bg-muted/30 rounded-lg animate-pulse">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+                            <span className="text-sm text-muted-foreground">{locationState.message}</span>
+                        </div>
+                    )}
+
+                    {locationState.status === 'error' && (
+                        <Alert variant="destructive">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertTitle>Gagal Mendapatkan Lokasi</AlertTitle>
+                            <AlertDescription>{locationState.message}</AlertDescription>
+                            <Button variant="link" size="sm" onClick={handleGetLocation} className="p-0 h-auto mt-2">Coba Lagi</Button>
+                        </Alert>
+                    )}
+
+                    {locationState.status === 'success' && (
+                        <div className="space-y-4">
+                            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-4 rounded-lg flex items-center gap-3">
+                                <div className="bg-green-100 dark:bg-green-800 p-2 rounded-full">
+                                    <MapPin className="h-5 w-5 text-green-700 dark:text-green-400" />
+                                </div>
+                                <div>
+                                    <p className="font-medium text-green-800 dark:text-green-400 text-sm">Lokasi Terverifikasi</p>
+                                    <p className="text-xs text-green-700/80 dark:text-green-500/80">Siap untuk check-out.</p>
+                                </div>
+                            </div>
+                            <Button onClick={() => setShowCamera(true)} size="lg" className="w-full h-12 text-base shadow-md bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white border-0 transition-all hover:scale-[1.02]">
+                                <Camera className="mr-2 h-5 w-5" /> Ambil Foto Pulang
+                            </Button>
+                        </div>
+                    )}
+                </div>
             </div>
         )
     };
@@ -480,29 +584,95 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
         }
 
         return (
-            <>
-                <div className="space-y-4 text-center">
-                    {locationState.status === 'idle' && <Button onClick={handleGetLocation} className="w-full"><LocateFixed className="mr-2 h-4 w-4" /> Dapatkan Lokasi & Check In</Button>}
-                    {locationState.status === 'loading' && <div className="flex items-center justify-center p-4"><Loader2 className="h-6 w-6 animate-spin" /> <span className="ml-2">{locationState.message}</span></div>}
-                    {locationState.status === 'error' && <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Error Lokasi</AlertTitle><AlertDescription>{locationState.message}</AlertDescription><Button variant="link" size="sm" onClick={handleGetLocation} className="p-0 h-auto mt-2">Coba Lagi</Button></Alert>}
+            <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+                <div className="space-y-4">
+                    {locationState.status === 'idle' && (
+                        <Button onClick={handleGetLocation} size="lg" className="w-full h-12 text-base shadow-md transition-all hover:scale-[1.02]">
+                            <LocateFixed className="mr-2 h-5 w-5" /> Dapatkan Lokasi & Check In
+                        </Button>
+                    )}
+
+                    {locationState.status === 'loading' && (
+                        <div className="flex flex-col items-center justify-center p-6 bg-muted/30 rounded-lg animate-pulse">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+                            <span className="text-sm text-muted-foreground">{locationState.message}</span>
+                        </div>
+                    )}
+
+                    {locationState.status === 'error' && (
+                         <Alert variant="destructive" className="animate-in shake">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertTitle>Error Lokasi</AlertTitle>
+                            <AlertDescription>{locationState.message}</AlertDescription>
+                            <Button variant="link" size="sm" onClick={handleGetLocation} className="p-0 h-auto mt-2">Coba Lagi</Button>
+                        </Alert>
+                    )}
+
                     {locationState.status === 'success' && officeSettings && distance !== null && (
-                        <>
+                        <div className="space-y-4">
                             {distance <= officeSettings.radius ? (
-                                <Alert variant="success"><CheckCircle className="h-4 w-4" /><AlertTitle>Anda Berada di Area Kantor</AlertTitle><AlertDescription>Jarak Anda: {distance.toFixed(0)} meter dari kantor. Silakan lanjutkan.</AlertDescription></Alert>
+                                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-4 rounded-lg flex gap-3">
+                                     <div className="bg-green-100 dark:bg-green-800 p-2 rounded-full h-fit">
+                                        <MapPin className="h-5 w-5 text-green-700 dark:text-green-400" />
+                                    </div>
+                                    <div>
+                                        <p className="font-semibold text-green-800 dark:text-green-400 text-sm">Dalam Jangkauan</p>
+                                        <p className="text-xs text-green-700/80 dark:text-green-500/80 mt-1">
+                                            Jarak: {distance.toFixed(0)} meter. (Max: {officeSettings.radius}m)
+                                        </p>
+                                    </div>
+                                </div>
                             ) : (
-                                <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Anda di Luar Jangkauan</AlertTitle><AlertDescription>Anda berada <b>{distance.toFixed(0)} meter</b> dari kantor. Batas radius adalah <b>{officeSettings.radius} meter</b>.</AlertDescription></Alert>
+                                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4 rounded-lg flex gap-3">
+                                    <div className="bg-red-100 dark:bg-red-800 p-2 rounded-full h-fit">
+                                        <AlertCircle className="h-5 w-5 text-red-700 dark:text-red-400" />
+                                    </div>
+                                    <div>
+                                        <p className="font-semibold text-red-800 dark:text-red-400 text-sm">Di Luar Jangkauan</p>
+                                        <p className="text-xs text-red-700/80 dark:text-red-500/80 mt-1">
+                                            Jarak: <b>{distance.toFixed(0)}m</b>. Anda harus berada dalam radius <b>{officeSettings.radius}m</b> dari kantor.
+                                        </p>
+                                    </div>
+                                </div>
                             )}
-                            <Button onClick={() => setShowCamera(true)} disabled={distance > officeSettings.radius} className="w-full">Lanjut Ambil Foto</Button>
-                        </>
+
+                            <Button
+                                onClick={() => setShowCamera(true)}
+                                disabled={distance > officeSettings.radius}
+                                size="lg"
+                                className="w-full h-12 text-base shadow-md bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white border-0 transition-all hover:scale-[1.02]"
+                            >
+                                <Camera className="mr-2 h-5 w-5" /> Lanjut Ambil Foto
+                            </Button>
+                        </div>
                     )}
                 </div>
-                <div className="relative"><div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div><div className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground">Atau Ajukan Izin</span></div></div>
-                <form onSubmit={handleRequestLeave} className="space-y-4">
-                    <div className="space-y-2"><Label>Tipe Izin</Label><Select name="leaveType" value={leaveType} onValueChange={(v: LeaveType) => setLeaveType(v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="On-Leave">Izin (On-Leave)</SelectItem><SelectItem value="Sick">Sakit (Sick)</SelectItem></SelectContent></Select></div>
-                    <div className="space-y-2"><Label htmlFor="note">Catatan / Alasan</Label><Textarea id="note" name="note" placeholder="e.g., Ada urusan keluarga." required value={leaveNote} onChange={(e) => setLeaveNote(e.target.value)} /></div>
-                    <FormButton type="submit" className="w-full" variant="secondary" disabled={isProcessing || locationState.status === 'loading'}>Kirim Pengajuan Izin</FormButton>
+
+                <div className="relative py-2">
+                    <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                    <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">Atau Ajukan Izin</span></div>
+                </div>
+
+                <form onSubmit={handleRequestLeave} className="space-y-4 bg-muted/30 p-4 rounded-lg border">
+                    <div className="space-y-2">
+                        <Label className="text-xs font-semibold uppercase text-muted-foreground">Tipe Izin</Label>
+                        <Select name="leaveType" value={leaveType} onValueChange={(v: LeaveType) => setLeaveType(v)}>
+                            <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="On-Leave">Izin (On-Leave)</SelectItem>
+                                <SelectItem value="Sick">Sakit (Sick)</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                         <Label className="text-xs font-semibold uppercase text-muted-foreground" htmlFor="note">Alasan</Label>
+                        <Textarea id="note" name="note" className="bg-background resize-none" placeholder="Contoh: Ada urusan keluarga mendesak..." required value={leaveNote} onChange={(e) => setLeaveNote(e.target.value)} />
+                    </div>
+                    <FormButton type="submit" className="w-full" variant="secondary" disabled={isProcessing || locationState.status === 'loading'}>
+                        Kirim Pengajuan
+                    </FormButton>
                 </form>
-            </>
+            </div>
         );
     };
 
@@ -531,28 +701,34 @@ export function CheckInClientPage({ employees, officeSettings }: { employees: Em
 
 
     return (
-        <div className="flex justify-center items-start pt-4 sm:pt-10">
-            <Card className="w-full max-w-md">
-                <CardHeader>
-                    <div className="flex items-center gap-3 mb-2">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                            <UserCheck className="h-6 w-6 text-primary" />
+        <div className="min-h-screen w-full flex justify-center items-start pt-4 sm:pt-10 bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 p-4">
+            <Card className="w-full max-w-md border-0 shadow-2xl bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm overflow-hidden ring-1 ring-gray-900/5 dark:ring-white/10">
+                <CardHeader className="pb-2 bg-gradient-to-b from-white to-transparent dark:from-gray-800/50">
+                    <div className="flex flex-col items-center text-center space-y-2">
+                        <div className="p-3 bg-primary/10 rounded-2xl mb-1">
+                            <ShieldCheck className="h-8 w-8 text-primary" />
                         </div>
                         <div>
-                            <CardTitle>Portal Karyawan</CardTitle>
-                            <CardDescription>Pilih nama Anda untuk mencatat kehadiran hari ini.</CardDescription>
+                            <CardTitle className="text-xl">Portal Kehadiran</CardTitle>
+                            <CardDescription>Silakan isi data kehadiran Anda.</CardDescription>
                         </div>
                     </div>
+                    <LiveClock />
                 </CardHeader>
-                <CardContent className="space-y-6">
+                <CardContent className="space-y-6 pt-2">
                     <div className="space-y-2">
-                        <Label htmlFor="employee">Nama Karyawan</Label>
+                        <Label htmlFor="employee" className="text-xs font-semibold uppercase text-muted-foreground ml-1">Nama Karyawan</Label>
                         <EmployeeSelect employees={employees} onSelect={handleEmployeeChange} disabled={isProcessing || locationState.status === 'loading'} value={selectedEmployeeId} />
                     </div>
                     {renderContent()}
-                    <div className="text-center pb-4 text-xs text-muted-foreground/50">
-                        v2.0 (Direct Save Mode)
+                    <div className="text-center pb-1 text-[10px] uppercase tracking-widest text-muted-foreground/30">
+                        v2.2 UI Remaster
                     </div>
+                    {logs.length > 0 && (
+                        <div className="mx-6 mb-6 p-2 bg-black text-green-400 font-mono text-xs h-32 overflow-y-auto rounded border border-green-900">
+                            {logs.map((log, i) => <div key={i}>{log}</div>)}
+                        </div>
+                    )}
                 </CardContent>
                 {installPromptEvent && (
                     <CardFooter>
